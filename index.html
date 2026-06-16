@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuits 01 — A Mathematical Framework for Transformer Circuits</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-card: #0d1117;
+            --bg-code: #161b22;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #76B900;
+            --accent-dim: #76B90044;
+            --accent-glow: #76B90033;
+            --border: #21262d;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+            --max-width: 900px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .hero > * { position: relative; z-index: 1; }
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .hero h1 .accent { color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 2rem;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pipeline-arrow { color: var(--accent); font-size: 0.9rem; font-weight: 700; }
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .slide p { margin-bottom: 1rem; color: var(--text-secondary); }
+        .slide p strong { color: var(--text-primary); }
+        .slide ul, .slide ol { margin-bottom: 1rem; padding-left: 1.5rem; color: var(--text-secondary); }
+        .slide li { margin-bottom: 0.4rem; }
+        .slide li strong { color: var(--text-primary); }
+        .slide code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            color: #c9d1d9;
+        }
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .code-block pre { margin: 0; padding: 1rem; overflow-x: auto; }
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .kw { color: #ff7b72; }
+        .fn { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .type { color: #ffa657; }
+        .dir { color: #ff7b72; }
+        .mac { color: #ffa657; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: rgba(13, 17, 23, 0.5); }
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .diagram-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-box.dim { color: var(--text-secondary); border-color: var(--border); }
+        .diagram-arrow { color: var(--accent); font-size: 1.3rem; font-weight: 700; }
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-vertical .diagram-arrow { font-size: 1.1rem; }
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .hierarchy-level { display: flex; align-items: center; gap: 0.75rem; }
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+        .hierarchy-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .hierarchy-item.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .diagram-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .diagram-panel.accent-border { border-left: 3px solid var(--accent); }
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .diagram-panel p, .diagram-panel ul { font-size: 0.85rem; }
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .callout p { margin-bottom: 0; }
+        .callout p + p { margin-top: 0.5rem; }
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+        .contents-list { list-style: none; padding-left: 0; counter-reset: contents; }
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .contents-list li:last-child { border-bottom: none; }
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+        .contents-list a { color: var(--text-primary); text-decoration: none; transition: color 0.2s; }
+        .contents-list a:hover { color: var(--accent); }
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas, .canvas-wrap svg { display: block; margin: 0 auto; max-width: 100%; }
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #ffa657; color: #ffa657; background: rgba(255,166,87,0.08); }
+        .badge.bad   { border-color: #ff7b72; color: #ff7b72; background: rgba(255,123,114,0.08); }
+        @media (max-width: 640px) {
+            .slide { padding: 3rem 1rem; min-height: auto; }
+            .slide-number { font-size: 3rem; top: 1.5rem; right: 1rem; }
+            .slide h2 { font-size: 1.5rem; }
+            .diagram-grid.cols-2, .diagram-grid.cols-3 { grid-template-columns: 1fr; }
+            .pipeline { gap: 0.15rem; }
+            .pipeline-step { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+            .hero h1 { font-size: 1.8rem; }
+            table { font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+<header class="hero">
+    <div class="series-label">Transformer Circuits Thread &mdash; Presentation 01</div>
+    <h1>A Mathematical Framework for <span class="accent">Transformer</span> Circuits</h1>
+    <p class="subtitle">Anthropic's foundational interpretability paper: treat a transformer as readable mathematics &mdash; a shared residual stream, attention heads that split into independent QK and OV circuits, and head composition that builds the first genuine in-context-learning algorithm.</p>
+    <div class="tags">
+        <span class="tag">Residual Stream</span>
+        <span class="tag">QK / OV Circuits</span>
+        <span class="tag">Path Expansion</span>
+        <span class="tag">Skip-Trigrams</span>
+        <span class="tag">Composition</span>
+        <span class="tag">Induction Heads</span>
+    </div>
+    <div class="pipeline">
+        <span class="pipeline-step">Residual Stream</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">QK + OV Circuits</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">0-Layer: Bigrams</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">1-Layer: Skip-Trigrams</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">2-Layer: Induction</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>What This Paper Shows</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">The residual stream as a communication channel</a></li>
+        <li><a href="#slide-02">Attention heads = QK circuit + OV circuit</a></li>
+        <li><a href="#slide-03">Freezing attention &rarr; linearity, paths &amp; virtual weights</a></li>
+        <li><a href="#slide-04">Zero- and one-layer models: bigrams &amp; skip-trigrams</a></li>
+        <li><a href="#slide-05">Two layers: composition &amp; the induction head</a></li>
+        <li><a href="#slide-06">The MLP caveat &amp; the vocabulary it left us</a></li>
+        <li><a href="#slide-07">What to Take Away</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>The Residual Stream as a Communication Channel</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Elhage, Nanda, Olsson, Henighan, Joseph, Mann, Askell, Olah et al. &mdash; Anthropic &mdash; 22 Dec 2021 <span class="badge ok">Transformer Circuits</span> <span class="badge">transformer-circuits.pub</span></p>
+    <h3>The problem</h3>
+    <p>A trained transformer is a black box of matrices. We can measure what it does but not <em>why</em>. This paper asks a narrower, tractable question: can we describe, in exact mathematical terms, the small-scale algorithms a transformer actually runs &mdash; and read some of them straight off the weights?</p>
+    <h3>The reframing</h3>
+    <p>The central object is the <strong>residual stream</strong>: the running vector that flows from the token embedding through every layer to the unembedding. Every component &mdash; the embedding, each attention head, each MLP, the unembedding &mdash; <strong>reads from and writes to subspaces of this one shared stream</strong>. Components do not talk to each other directly; the residual stream is the bus they all communicate over.</p>
+    <p>Because each component <strong>adds</strong> its output back into the stream, the layers are connected by addition, not by being wired in series. A crucial consequence: <strong>attention heads are independent and additive</strong> &mdash; each head can be understood on its own as an operation that reads its input by linear projection from the stream and writes its result by linear projection back into it. You can analyse one head without simulating the others.</p>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 250" width="720" height="250" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .rs-box { fill: #161b22; stroke: #21262d; stroke-width: 1; }
+                .rs-acc { fill: rgba(118,185,0,0.08); stroke: #76B900; stroke-width: 1; }
+                .rs-lbl { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .rs-sub { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-anchor: middle; }
+                .rs-acclbl { fill: #76B900; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .rs-ttl { fill: #76B900; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+                .rs-arr { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#rh); }
+                .rs-chan { stroke: #76B900; stroke-width: 3; fill: none; marker-end: url(#rh); }
+            </style>
+            <defs><marker id="rh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#76B900"/></marker></defs>
+            <text x="10" y="18" class="rs-ttl">The residual stream &mdash; one shared channel every component reads &amp; writes</text>
+            <!-- the channel -->
+            <line x1="30" y1="130" x2="690" y2="130" class="rs-chan"/>
+            <text x="360" y="150" class="rs-sub">residual stream  x  =  embed  +  &Sigma; head outputs  +  &Sigma; MLP outputs</text>
+            <!-- embed in -->
+            <rect x="22" y="108" width="74" height="34" class="rs-acc" rx="6"/><text x="59" y="129" class="rs-acclbl">W_E embed</text>
+            <!-- heads/MLPs reading + writing -->
+            <rect x="190" y="40" width="90" height="34" class="rs-box" rx="6"/><text x="235" y="61" class="rs-lbl">Head h1</text>
+            <rect x="330" y="40" width="90" height="34" class="rs-box" rx="6"/><text x="375" y="61" class="rs-lbl">Head h2</text>
+            <rect x="470" y="40" width="90" height="34" class="rs-box" rx="6"/><text x="515" y="61" class="rs-lbl">MLP</text>
+            <!-- read (up) and write (down) arrows -->
+            <path d="M235 130 L235 76" class="rs-arr"/><path d="M250 74 L250 128" class="rs-arr"/>
+            <path d="M375 130 L375 76" class="rs-arr"/><path d="M390 74 L390 128" class="rs-arr"/>
+            <path d="M515 130 L515 76" class="rs-arr"/><path d="M530 74 L530 128" class="rs-arr"/>
+            <text x="170" y="98" class="rs-sub">read</text><text x="300" y="98" class="rs-sub">write +=</text>
+            <!-- unembed out -->
+            <rect x="624" y="108" width="74" height="34" class="rs-acc" rx="6"/><text x="661" y="129" class="rs-acclbl">W_U logits</text>
+            <text x="360" y="210" class="rs-sub">Heads are independent &amp; additive &mdash; each can be analysed on its own.</text>
+            <text x="360" y="228" class="rs-sub">No component talks to another directly; they only communicate through the stream.</text>
+        </svg>
+    </div>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>Re-described this way, a transformer stops being a monolithic stack and becomes a set of components that <strong>communicate by reading and writing to one linear channel</strong>. Additivity is what makes the rest of the paper possible: you can pull out individual heads, individual paths, and study them in isolation.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>Attention Heads = QK Circuit + OV Circuit</h2>
+    <h3>Two near-independent computations</h3>
+    <p>The paper's sharpest tool is decomposing each attention head into <strong>two largely independent circuits</strong>. Conventionally we think of four matrices &mdash; query, key, value, output (<code>W_Q, W_K, W_V, W_O</code>). The framework regroups them into two products that each have a clear job:</p>
+    <ul>
+        <li><strong>The QK circuit</strong> &mdash; <code>W_Q&#x1D40; W_K</code> &mdash; governs <em>where</em> the head attends. It is a bilinear form on the residual stream that produces the attention pattern: which source position each destination position reads from.</li>
+        <li><strong>The OV circuit</strong> &mdash; <code>W_O W_V</code> &mdash; governs <em>what</em> gets written. Once a destination has decided to attend to a source token, the OV circuit determines how that source token affects the destination's output, i.e. what vector is added back into the residual stream.</li>
+    </ul>
+    <p>Keys, queries and values are <strong>not</strong> the fundamental objects &mdash; they are intermediate results in computing these two low-rank matrices. Splitting "where to look" (QK) from "what to copy" (OV) lets you reason about an attention pattern and its content effect separately.</p>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 300" width="720" height="300" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .qk-box { fill: #161b22; stroke: #21262d; stroke-width: 1; }
+                .qk-acc { fill: rgba(118,185,0,0.08); stroke: #76B900; stroke-width: 1; }
+                .qk-lbl { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .qk-sub { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-anchor: middle; }
+                .qk-acclbl { fill: #76B900; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .qk-ttl { fill: #76B900; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+                .qk-arr { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#qh); }
+            </style>
+            <defs><marker id="qh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#76B900"/></marker></defs>
+            <text x="10" y="18" class="qk-ttl">One attention head splits into two independent circuits</text>
+            <!-- residual stream source -->
+            <rect x="20" y="130" width="120" height="40" class="qk-acc" rx="6"/><text x="80" y="148" class="qk-acclbl">residual</text><text x="80" y="163" class="qk-acclbl">stream</text>
+            <!-- QK branch (top) -->
+            <rect x="230" y="50" width="160" height="40" class="qk-box" rx="6"/><text x="310" y="68" class="qk-lbl">QK circuit</text><text x="310" y="83" class="qk-sub">W_Q&#x1D40; W_K</text>
+            <rect x="480" y="50" width="200" height="40" class="qk-acc" rx="6"/><text x="580" y="68" class="qk-acclbl">attention pattern</text><text x="580" y="83" class="qk-sub">WHERE the head looks</text>
+            <!-- OV branch (bottom) -->
+            <rect x="230" y="210" width="160" height="40" class="qk-box" rx="6"/><text x="310" y="228" class="qk-lbl">OV circuit</text><text x="310" y="243" class="qk-sub">W_O W_V</text>
+            <rect x="480" y="210" width="200" height="40" class="qk-acc" rx="6"/><text x="580" y="228" class="qk-acclbl">written vector</text><text x="580" y="243" class="qk-sub">WHAT it copies into stream</text>
+            <!-- arrows -->
+            <path d="M140 142 L228 78" class="qk-arr"/>
+            <path d="M140 158 L228 222" class="qk-arr"/>
+            <path d="M390 70 L478 70" class="qk-arr"/>
+            <path d="M390 230 L478 230" class="qk-arr"/>
+            <text x="160" y="115" class="qk-sub">q, k = intermediate</text>
+            <text x="160" y="195" class="qk-sub">v = intermediate</text>
+            <text x="360" y="290" class="qk-sub">QK decides the pattern; OV decides the content. The two barely interact.</text>
+        </svg>
+    </div>
+    <div class="callout">
+        <div class="callout-label">The mechanism</div>
+        <p>Every later interpretability result leans on this split. To understand a head you ask two separable questions: <strong>what makes it attend (QK)</strong> and <strong>what it does once it attends (OV)</strong>. The four learned matrices are just the factored, low-rank way of writing these two products.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Freeze the Attention &rarr; the Model Goes Linear</h2>
+    <h3>The trick that opens everything up</h3>
+    <p>Attention is the only strongly non-linear thing in an attention-only transformer (the softmax). The paper's key manoeuvre: <strong>treat the attention patterns as fixed</strong>. If you freeze them &mdash; hold the softmax outputs constant &mdash; everything else the model does is <strong>linear</strong> in the residual stream.</p>
+    <p>That linearity is enormous leverage. An attention-only model can then be written as a <strong>sum of interpretable end-to-end functions</strong>, each mapping input tokens to changes in output logits. Each function corresponds to a <strong>path</strong> through the network &mdash; a chain of components the information flows through.</p>
+    <h3>Path expansion &amp; virtual weights</h3>
+    <p>Because the paths are linear, analysing them is just <strong>multiplying chains of matrices</strong>. Expand the product of all the per-layer transforms and you get one term per path. Two components that are not adjacent but communicate through the residual stream have an effective "<strong>virtual weight</strong>" &mdash; the matrix product describing their direct interaction. As the paper puts it, you can learn a lot simply by breaking apart sums and multiplying together chains of matrices.</p>
+    <div class="diagram-flow">
+        <div class="diagram-box dim">tokens</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">W_E</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box">frozen head<br><small>OV path</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box">frozen head<br><small>OV path</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">W_U</div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box dim">&Delta; logits</div>
+    </div>
+    <p style="text-align:center;font-family:var(--font-mono);font-size:0.8rem;">Freeze the patterns &rarr; one path = one matrix product = one interpretable term in the sum.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>Transformers contain an <strong>enormous amount of linear structure</strong> hiding behind a single non-linearity. Quarantine the softmax and the rest decomposes into a sum of matrix-product paths you can read individually &mdash; the mathematical backbone of mechanistic interpretability.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Zero &amp; One Layer: Bigrams and Skip-Trigrams</h2>
+    <h3>Zero-layer: a bigram table you can read off the weights</h3>
+    <p>Strip out every attention layer and you have embedding straight to unembedding. This model can only express <strong>bigram statistics</strong> &mdash; the probability of the next token given the current one. And you do not even need to run it: the bigram log-likelihoods are read directly from the matrix product <code>W_E&middot;W_U</code>.</p>
+    <h3>One-layer: an ensemble of bigram + skip-trigram models</h3>
+    <p>Add a single attention layer and the model becomes an <strong>ensemble of bigram and "skip-trigram" models</strong>. A skip-trigram has the form <code>[A]&hellip;[B][C]</code>: a head attends back to an earlier token <code>A</code> and uses it to adjust the prediction for what follows <code>B</code>. Both tables can again be extracted straight from the weights without running the model.</p>
+    <p>This is surprisingly expressive &mdash; it supports <strong>primitive copying / in-context behaviour</strong>: having seen <code>A</code> earlier, the head can raise the odds of tokens that tend to co-occur with it. But the mechanism is crude.</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Zero-layer model</h4>
+            <p><code>logits &asymp; W_E &middot; W_U</code></p>
+            <p>Pure <strong>bigram</strong> statistics: P(next | current). Read directly from the weights; no attention at all.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>One-layer model</h4>
+            <p><code>[A] &hellip; [B] &rarr; [C]</code></p>
+            <p>Bigram + <strong>skip-trigram</strong> ensemble. Source token <code>A</code>, attended to from <code>B</code>, shifts the prediction <code>C</code>. Primitive copying.</p>
+        </div>
+    </div>
+    <h3>The skip-trigram bug</h3>
+    <p>The crudeness shows up as the <strong>skip-trigram bug</strong>. A one-layer head's QK (which <code>A</code> to attend to) and OV (what to predict from it) are <em>locked together</em> across all positions &mdash; the head cannot make "what to copy" depend on the token immediately before the prediction. So a head that correctly learns <code>"&hellip;keep&hellip;in mind" &rarr; "mind"</code> is forced to <em>also</em> boost the symmetric, wrong continuation (e.g. <code>"&hellip;keep&hellip;at mind"</code>), because it cannot represent the two cases separately. The capability and the failure are the same limitation seen from two sides.</p>
+    <div class="callout">
+        <div class="callout-label">Caveat</div>
+        <p>One layer gets you copying-flavoured behaviour, but it is a <strong>fixed lookup</strong>, not real in-context reasoning. The QK/OV coupling that makes skip-trigrams cheap is exactly what makes them buggy &mdash; and exactly what a second layer is needed to overcome.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Two Layers: Composition and the Induction Head</h2>
+    <h3>Composition: heads that build on heads</h3>
+    <p>With two attention layers, a head in the second layer can use the output of a head in the first. The paper names <strong>three ways heads compose</strong>, by which input of the later head the earlier head feeds:</p>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border">
+            <h4>Q-composition</h4>
+            <p>Layer-1 output feeds the <strong>query</strong> of a layer-2 head &mdash; changing what it is <em>searching for</em>.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>K-composition</h4>
+            <p>Layer-1 output feeds the <strong>key</strong> of a layer-2 head &mdash; changing which positions are <em>matchable</em>.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>V-composition</h4>
+            <p>Layer-1 output feeds the <strong>value</strong> &mdash; changing <em>what content</em> gets moved. Different in kind from Q/K.</p>
+        </div>
+    </div>
+    <h3>Induction heads &mdash; a real in-context-learning algorithm</h3>
+    <p>The payoff of composition is the <strong>induction head</strong>. Given a sequence containing <code>[A][B]&hellip;[A]</code>, an induction head, sitting at the second <code>[A]</code>, attends to the token that followed the <em>earlier</em> <code>[A]</code> &mdash; namely <code>[B]</code> &mdash; and predicts it. It is two steps composed: <strong>prefix-matching</strong> (find the earlier place this token appeared) plus <strong>copying</strong> (emit whatever came next there).</p>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 250" width="720" height="250" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .in-box { fill: #161b22; stroke: #21262d; stroke-width: 1; }
+                .in-acc { fill: rgba(118,185,0,0.08); stroke: #76B900; stroke-width: 1; }
+                .in-lbl { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-anchor: middle; }
+                .in-sub { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-anchor: middle; }
+                .in-acclbl { fill: #76B900; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-anchor: middle; }
+                .in-ttl { fill: #76B900; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+                .in-arr { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#ih2); }
+                .in-dash { stroke: #ffa657; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; marker-end: url(#ih3); }
+            </style>
+            <defs>
+                <marker id="ih2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#76B900"/></marker>
+                <marker id="ih3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ffa657"/></marker>
+            </defs>
+            <text x="10" y="18" class="in-ttl">Induction: see [A][B]&hellip;[A], predict [B]</text>
+            <!-- token sequence -->
+            <rect x="40"  y="90" width="60" height="40" class="in-acc" rx="6"/><text x="70"  y="115" class="in-acclbl">A</text>
+            <rect x="120" y="90" width="60" height="40" class="in-box" rx="6"/><text x="150" y="115" class="in-lbl">B</text>
+            <rect x="200" y="90" width="60" height="40" class="in-box" rx="6"/><text x="230" y="115" class="in-lbl">&hellip;</text>
+            <rect x="280" y="90" width="60" height="40" class="in-box" rx="6"/><text x="310" y="115" class="in-lbl">&hellip;</text>
+            <rect x="360" y="90" width="60" height="40" class="in-acc" rx="6"/><text x="390" y="115" class="in-acclbl">A</text>
+            <rect x="500" y="90" width="120" height="40" class="in-acc" rx="6"/><text x="560" y="115" class="in-acclbl">predict B</text>
+            <!-- prefix match: current A back to earlier A (shifted +1 via prev-token head) -->
+            <path d="M388 88 C 300 30, 150 30, 78 88" class="in-dash"/>
+            <text x="230" y="40" class="in-sub">layer 1: prev-token head marks "B follows A"</text>
+            <!-- copy forward -->
+            <path d="M150 90 C 230 150, 470 150, 558 92" class="in-arr"/>
+            <text x="360" y="172" class="in-sub">layer 2: induction head attends to the token after the earlier A, copies it</text>
+            <text x="360" y="210" class="in-sub">prefix-matching (K-composition) + copying (OV) = in-context learning</text>
+            <text x="430" y="115" class="in-sub">&rarr;</text>
+        </svg>
+    </div>
+    <p>This is a <strong>qualitative jump</strong> over the one-layer model. A skip-trigram head can only copy via a fixed table; an induction head copies based on an <em>actual repeated pattern in the current context</em>, including token pairs it never saw in training. It is a small but genuine learning algorithm running at inference time &mdash; and it only exists with two or more layers, marking a real phase transition in capability.</p>
+    <div class="callout">
+        <div class="callout-label">The mechanism</div>
+        <p>An induction head is built by composition: a layer-1 head (often a "previous-token head") writes information that the layer-2 head's <strong>key</strong> uses to prefix-match (<strong>K-composition</strong>), and the OV circuit copies the matched continuation. Two simple heads compose into behaviour neither can do alone.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>The MLP Caveat &amp; the Vocabulary It Left Us</h2>
+    <h3>The honest limitation</h3>
+    <p>The paper is explicit that almost all of this analysis is of <strong>attention-only transformers &mdash; models with the MLP layers removed</strong>. That is a dramatic simplification: real transformers alternate attention and MLP blocks, and roughly two-thirds of the parameters live in the MLPs. The authors state plainly that the MLP portions have been much harder to get traction on, call it a major weakness of the work, and flag it as the open problem to tackle next.</p>
+    <div class="diagram-flow">
+        <div class="diagram-box accent">Attention<br><small>QK / OV understood</small></div>
+        <div class="diagram-arrow">+</div>
+        <div class="diagram-box dim">MLP<br><small>open problem</small></div>
+        <div class="diagram-arrow">=</div>
+        <div class="diagram-box">Full transformer<br><small>partially mapped</small></div>
+    </div>
+    <h3>Why it still matters to a practising engineer</h3>
+    <p>This paper is where the <strong>shared vocabulary of interpretability comes from</strong>. "Residual stream", "QK and OV circuits", "Q/K/V-composition", "path expansion", "virtual weights", "induction head" &mdash; every later result in this series, and most external mechanistic-interpretability work, is phrased in these terms. If you ever read model-internals tooling, an activation-patching study, or a circuit diagram, this is the dictionary.</p>
+    <p>It also plants the seed for the next deck: <strong>induction heads</strong> are not a toy curiosity. The follow-up work shows they appear in large models and account for a substantial share of <strong>in-context learning</strong> &mdash; the very capability that makes few-shot prompting work.</p>
+    <div class="callout">
+        <div class="callout-label">Why it matters</div>
+        <p>You do not need to do interpretability research to benefit. Knowing that attention splits into "where it looks" and "what it copies", and that copying-by-pattern (induction) is a discrete, learnable circuit, gives you a sturdier mental model of <strong>why in-context learning and prompting behave the way they do</strong>.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>The residual stream is the bus.</strong> Every component reads from and writes to one shared linear channel; heads are <em>independent and additive</em>, so they can be analysed in isolation.</li>
+        <li><strong>Heads factor into QK and OV.</strong> <code>W_Q&#x1D40;W_K</code> decides <em>where</em> a head attends; <code>W_O W_V</code> decides <em>what</em> it writes. Q, K, V are intermediate results, not the fundamental objects.</li>
+        <li><strong>Freeze the attention and the model is linear.</strong> It becomes a sum of matrix-product <em>paths</em> with <em>virtual weights</em> &mdash; you learn a lot by multiplying chains of matrices.</li>
+        <li><strong>Capability climbs with depth.</strong> Zero layers = bigrams from <code>W_E&middot;W_U</code>; one layer = bigram + skip-trigram ensemble (with the skip-trigram bug); two layers = composition.</li>
+        <li><strong>Composition creates induction heads.</strong> Prefix-matching + copying gives a genuine in-context-learning algorithm &mdash; <code>[A][B]&hellip;[A]&rarr;[B]</code> &mdash; a qualitative jump that needs at least two layers.</li>
+        <li><strong>The scope is honest:</strong> this is attention-only; MLPs remain a major open problem, named as the next frontier.</li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Where to next</div>
+        <p>This framework predicted that one specific circuit &mdash; the induction head &mdash; should be a big deal. <strong>Presentation 02 &mdash; In-context Learning and Induction Heads</strong> follows it into real models, showing that induction heads emerge during training at a sharp phase change and explain a substantial chunk of how large transformers learn from their context.</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <p>Part of <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Circuits">The Transformer Circuits Thread series</a> &mdash; Anthropic's mechanistic interpretability research, for engineers.</p>
+    <p style="margin-top:0.5rem;font-size:0.8rem;"><a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Transformer_Circuits">Back to Series Index</a></p>
+</footer>
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+</body>
+</html>
